@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lap Tracker | Beachside Racetrack</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div id="auth-overlay" class="auth-overlay">
+        <div class="auth-card">
+            <h2>Lap-Line Observer</h2>
+            <p>Enter your access key to begin tracking laps.</p>
+            <input type="password" id="auth-key" class="auth-input" placeholder="Enter Access Key">
+            <button id="auth-btn" class="btn-auth">Unlock</button>
+            <p id="auth-error" class="error-text"></p>
+        </div>
+    </div>
+
+    <main class="dashboard-container tracker-container">
+        <header class="dashboard-header tracker-header">
+            <div>
+                <h1>Lap Tracker</h1>
+                <p id="tracker-status" class="subtitle">Waiting for race data...</p>
+            </div>
+        </header>
+
+        <div id="button-container" class="car-grid">
+            </div>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/shared.js"></script>
+    <script>
+        initAuth('observer');
+
+        // Wrapper function to add a visual "flash" when a button is tapped
+        function logLap(btnElement, carNumber) {
+            socket.emit('log_lap', carNumber);
+            
+            // Visual feedback: briefly add an "active" class
+            btnElement.classList.add('tapped');
+            setTimeout(() => {
+                btnElement.classList.remove('tapped');
+            }, 150); // Removes the class after 150ms
+        }
+
+        function updateUI(state) {
+            const container = document.getElementById('button-container');
+            const status = document.getElementById('tracker-status');
+
+            if (state.currentRace.mode === 'Finished') {
+                container.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1; padding: 60px;">
+                        <h2>🏁 Race Finished</h2>
+                        <p>Waiting for the Safety Official to end the session.</p>
+                    </div>`;
+                status.innerText = "Session concluded.";
+                return;
+            }
+
+            if (!state.currentRace.active) {
+                container.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1; padding: 60px;">
+                        <h2>No active race.</h2>
+                        <p>Waiting for Race Control to start the timer.</p>
+                    </div>`;
+                status.innerText = "Standby.";
+                return;
+            }
+
+            status.innerText = "Tap car number when it crosses the line!";
+            
+            // Re-render buttons ONLY if the number of drivers changed to prevent disrupting active tapping
+            // (Comparing current HTML button count to state driver count)
+            const currentButtonCount = container.querySelectorAll('.btn-car').length;
+            if (currentButtonCount !== state.currentRace.drivers.length) {
+                container.innerHTML = state.currentRace.drivers.map(d =>
+                    `<button class="btn-large btn-car" onclick="logLap(this, ${d.carNumber})">
+                        ${d.carNumber}
+                    </button>`
+                ).join('');
+            }
+        }
+    </script>
+</body>
+</html>
