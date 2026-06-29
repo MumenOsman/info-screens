@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Next Race / Paddock View | Beachside Racetrack</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <main class="dashboard-container fullscreen-mode">
+        <header class="dashboard-header"
+            style="flex-direction: column; text-align: center; justify-content: center; margin-bottom: 60px;">
+            <p id="session-name" class="subtitle"
+                style="font-size: 1.5rem; letter-spacing: 0.2em; text-transform: uppercase;">Paddock Assignment</p>
+            <h1 id="title" class="paddock-title">Waiting for data...</h1>
+        </header>
+
+        <div id="driver-grid" class="paddock-grid">
+        </div>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/shared.js"></script>
+    <script>
+        setupFullscreen();
+
+        function updateUI(state) {
+            const grid = document.getElementById('driver-grid');
+            const title = document.getElementById('title');
+            const sessionNameText = document.getElementById('session-name');
+
+            // 1. Determine which session is "Up Next"
+            let upcomingSession = null;
+            let sessionNumber = 1;
+
+            if (state.sessions && state.sessions.length > 0) {
+                // If a race is currently running, the "Next" race is the one after it
+                if (state.race && state.race.running) {
+                    const nextIndex = state.currentSessionIndex + 1;
+                    if (nextIndex < state.sessions.length) {
+                        upcomingSession = state.sessions[nextIndex];
+                        sessionNumber = nextIndex + 1;
+                    }
+                } else {
+                    // If no race is running, the "Next" race is the current queued one
+                    upcomingSession = state.sessions[state.currentSessionIndex];
+                    sessionNumber = state.currentSessionIndex + 1;
+                }
+            }
+
+            // 2. Handle Empty State (No sessions or empty session)
+            if (!upcomingSession || !upcomingSession.drivers || upcomingSession.drivers.length === 0) {
+                title.innerText = "NO DRIVERS QUEUED";
+                title.className = "paddock-title text-muted";
+                sessionNameText.innerText = "Awaiting Session";
+                grid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1; font-size: 2rem; padding: 100px; text-align: center;">Waiting for Receptionist to assign drivers...</div>`;
+                return;
+            }
+
+            // 3. Display the Session Name (e.g., "Corporate Event" or "Session 2")
+            sessionNameText.innerText = upcomingSession.name || `Race Session ${sessionNumber}`;
+
+            // 4. Handle the Title and Status Banner
+            if (state.race && state.race.running) {
+                title.innerHTML = `⏳ UP NEXT <br><span style="font-size: 1.5rem; color: var(--color-hazard);">Track is currently busy. Please wait.</span>`;
+                title.className = "paddock-title";
+            } else {
+                title.innerHTML = `🟢 PROCEED TO CARS <br><span style="font-size: 1.5rem; color: var(--text-muted);">Your race is ready to begin!</span>`;
+                title.className = "paddock-title pulse-text"; // Adds an attention-grabbing pulse
+            }
+
+            // 5. Generate the massive Driver Cards by matching drivers to their car numbers in state.cars
+            grid.innerHTML = upcomingSession.drivers.map(driverName => {
+                const carNum = (state.cars && state.cars[driverName]) ? state.cars[driverName] : '?';
+                return `
+                <div class="driver-assignment-card">
+                    <div class="car-number-block">
+                        <span class="car-label">CAR</span>
+                        <span class="car-number">${carNum}</span>
+                    </div>
+                    <div class="driver-name-block">
+                        <span class="driver-name-large">${driverName}</span>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        // 6. MISSING LISTENERS: Bind the updateUI function to our server's socket events
+        socket.on('state_update', updateUI);
+        socket.on('race:updated', updateUI);
+    </script>
+</body>
+
+</html>
