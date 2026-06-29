@@ -1,0 +1,651 @@
+/* ==========================================================================
+   BEACHSIDE RACETRACK MVP - MASTER CSS
+   ========================================================================== */
+
+/* --- 1. Base Variables & Reset --- */
+:root {
+    --bg-main: #f8fafc;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --card-bg: #ffffff;
+
+    /* Functional Track Colors */
+    --color-safe: #10b981;
+    /* Green */
+    --color-hazard: #f59e0b;
+    /* Yellow */
+    --color-danger: #ef4444;
+    /* Red */
+    --color-start: #3b82f6;
+    /* Blue */
+    --color-end: #64748b;
+    /* Slate */
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    padding: 20px;
+    line-height: 1.5;
+}
+
+
+/* --- 2. Global Utilities & Layouts --- */
+.dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px 0;
+}
+
+.fullscreen-mode {
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.dashboard-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+    gap: 20px;
+}
+
+h1 {
+    font-size: 2.5rem;
+    letter-spacing: -0.02em;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+}
+
+.divider {
+    border: 0;
+    height: 2px;
+    background: #e2e8f0;
+    margin: 40px 0;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.text-muted {
+    color: var(--text-muted);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Required MVP Button for full-screen public displays */
+.fullscreen-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.fullscreen-btn:hover {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+
+/* --- 3. Authentication Overlay (Glassmorphism) --- */
+.auth-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.auth-card {
+    background: var(--card-bg);
+    padding: 40px;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 450px;
+    text-align: center;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.auth-card h2 {
+    margin-bottom: 10px;
+    color: var(--text-main);
+}
+
+.auth-card p {
+    margin-bottom: 24px;
+    color: var(--text-muted);
+}
+
+.auth-input {
+    width: 100%;
+    padding: 16px;
+    font-size: 1.1rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.auth-input:focus {
+    border-color: var(--color-start);
+}
+
+.btn-auth {
+    width: 100%;
+    padding: 16px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: white;
+    background-color: var(--text-main);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-auth:hover {
+    background-color: #334155;
+}
+
+.error-text {
+    color: var(--color-danger);
+    margin-top: 15px;
+    font-weight: 500;
+    height: 20px;
+}
+
+
+/* --- 4. Track Status & Flag Colors (CRITICAL !important OVERRIDES) --- */
+.flag-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    transition: background-color 0.3s;
+}
+
+.bg-Safe {
+    background-color: var(--color-safe) !important;
+}
+
+.bg-Hazard {
+    background-color: var(--color-hazard) !important;
+}
+
+.bg-Danger {
+    background-color: var(--color-danger) !important;
+}
+
+.bg-Finished {
+    background: repeating-conic-gradient(#000 0% 25%, #fff 0% 50%) 50% / 100px 100px !important;
+}
+
+
+/* --- 5. Race Control (Safety Official Dashboard) --- */
+.status-badge {
+    background: var(--card-bg);
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-size: 1.25rem;
+    font-weight: 600;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border: 2px solid #e2e8f0;
+}
+
+.control-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.btn-large {
+    font-size: clamp(1.2rem, 2vw, 1.8rem);
+    font-weight: 600;
+    padding: 30px 20px;
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    color: white;
+}
+
+.btn-large:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-large:active {
+    transform: translateY(0);
+}
+
+.icon {
+    font-size: 2.5rem;
+}
+
+.btn-start {
+    background-color: var(--color-start);
+}
+
+.btn-safe {
+    background-color: var(--color-safe);
+}
+
+.btn-hazard {
+    background-color: var(--color-hazard);
+    color: #000;
+}
+
+.btn-danger {
+    background-color: var(--color-danger);
+}
+
+.btn-end {
+    background-color: var(--color-end);
+}
+
+.btn-finish {
+    background: repeating-conic-gradient(#1e293b 0% 25%, #f8fafc 0% 50%) 50% / 40px 40px;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.btn-finish:hover {
+    background: repeating-conic-gradient(#0f172a 0% 25%, #e2e8f0 0% 50%) 50% / 40px 40px;
+}
+
+
+/* --- 6. Front Desk (Receptionist Dashboard) --- */
+.input-group {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.control-input {
+    flex: 1;
+    min-width: 250px;
+    padding: 16px 20px;
+    font-size: 1.2rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+    background: var(--card-bg);
+}
+
+.control-input:focus {
+    border-color: var(--color-start);
+}
+
+.btn-action {
+    background-color: var(--color-start);
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 600;
+    padding: 16px 30px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.btn-action:hover {
+    background-color: #2563eb;
+    transform: translateY(-2px);
+}
+
+.queue-section h3 {
+    margin-bottom: 20px;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.queue-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.queue-item {
+    background: var(--card-bg);
+    padding: 16px 20px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+    font-size: 1.2rem;
+    transition: transform 0.2s ease;
+}
+
+.queue-item:hover {
+    transform: translateX(5px);
+}
+
+.car-badge {
+    background: var(--text-main);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 1rem;
+    min-width: 80px;
+    text-align: center;
+}
+
+.driver-name {
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.empty-state {
+    padding: 30px 20px;
+    text-align: center;
+    color: var(--text-muted);
+    background: transparent;
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    font-style: italic;
+}
+
+
+/* --- 7. Lap Tracker (Tablet View) --- */
+.tracker-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.tracker-header {
+    margin-bottom: 20px;
+}
+
+.car-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-auto-rows: minmax(150px, 1fr);
+    gap: 15px;
+    flex: 1;
+    padding-bottom: 20px;
+}
+
+.btn-car {
+    background-color: var(--text-main);
+    color: white;
+    font-size: 5rem;
+    font-weight: 800;
+    border-radius: 20px;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    transition: all 0.1s ease-out;
+}
+
+.btn-car:hover {
+    background-color: #334155;
+    transform: translateY(-4px);
+}
+
+.btn-car:active,
+.btn-car.tapped {
+    background-color: var(--color-safe);
+    transform: translateY(4px) scale(0.95);
+    box-shadow: none;
+}
+
+
+/* --- 8. Spectator Leaderboard --- */
+.table-wrapper {
+    background: var(--card-bg);
+    border-radius: 20px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+}
+
+.modern-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.modern-table th {
+    background: #f8fafc;
+    padding: 20px 24px;
+    color: var(--text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.95rem;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.modern-table td {
+    padding: 20px 24px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 1.25rem;
+    vertical-align: middle;
+    color: var(--text-main);
+}
+
+.modern-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.modern-table tbody tr {
+    transition: background-color 0.2s;
+}
+
+.modern-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+/* 1st Place Highlight */
+.row-first-place {
+    background-color: #fffbeb !important;
+}
+
+.row-first-place td {
+    border-bottom: 1px solid #fde68a;
+}
+
+.pos-column {
+    font-weight: 800;
+    color: var(--text-muted);
+    width: 80px;
+}
+
+.row-first-place .pos-column {
+    color: #d97706;
+}
+
+.driver-column {
+    font-weight: 700;
+    font-size: 1.4rem;
+}
+
+.lap-column {
+    font-family: monospace;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.time-highlight {
+    font-family: monospace;
+    font-weight: 700;
+    font-size: 1.4rem;
+    color: var(--color-safe);
+}
+
+.time-muted {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 1rem;
+}
+
+
+/* --- 9. Paddock / Next Race View --- */
+.paddock-title {
+    font-size: 4rem;
+    font-weight: 800;
+    margin-top: 10px;
+    line-height: 1.2;
+}
+
+.pulse-text {
+    color: var(--color-safe);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.02);
+        opacity: 0.8;
+        text-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.paddock-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 30px;
+    padding: 20px;
+}
+
+.driver-assignment-card {
+    background: var(--card-bg);
+    border-radius: 24px;
+    display: flex;
+    overflow: hidden;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border: 2px solid #e2e8f0;
+    transition: transform 0.3s;
+}
+
+.driver-assignment-card:hover {
+    transform: translateY(-5px);
+}
+
+.car-number-block {
+    background: var(--text-main);
+    color: white;
+    padding: 30px 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-width: 150px;
+}
+
+.car-label {
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #cbd5e1;
+}
+
+.car-number {
+    font-size: 5rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.driver-name-block {
+    padding: 30px 40px;
+    display: flex;
+    align-items: center;
+    flex: 1;
+}
+
+.driver-name-large {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-main);
+    word-break: break-word;
+}
+
+
+.session-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    background: #f9f9f9;
+}
+
+.session-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.driver-list {
+    list-style: none;
+    padding: 0;
+}
+
+.driver-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.driver-controls button {
+    margin-left: 5px;
+    font-size: 0.85em;
+}
