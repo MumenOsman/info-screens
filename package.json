@@ -1,0 +1,16 @@
+{
+  "name": "beachside-racetrack",
+  "version": "1.0.0",
+  "description": "Racetrack MVP",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node server/server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "express": "^4.22.2",
+    "socket.io": "^4.8.3"
+  }
+}
