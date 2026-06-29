@@ -1,3 +1,4 @@
 node_modules/
 requirements.md
 task.md
+server/state.json
