@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Race Control</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <div id="auth-overlay" class="auth-overlay">
+        <div class="auth-card">
+            <h2>Safety Official Access</h2>
+            <p>Please enter your credentials to unlock race controls.</p>
+            <input type="password" id="auth-key" class="auth-input" placeholder="Enter Access Key">
+            <button id="auth-btn" class="btn-auth">Unlock</button>
+            <p id="auth-error" class="error-text"></p>
+        </div>
+    </div>
+
+    <main class="dashboard-container">
+        <header class="dashboard-header">
+            <div>
+                <h1>Race Control</h1>
+                <p class="subtitle">Beachside Racetrack Operations</p>
+            </div>
+            <h2 id="status" class="status-badge">Mode: Danger</h2>
+        </header>
+
+        <div class="control-grid">
+            <button class="btn-large btn-start" onclick="socket.emit('start_race')">
+                <span class="icon">🚀</span> Start Race
+            </button>
+            <button class="btn-large btn-safe" onclick="socket.emit('change_mode', 'Safe')">
+                <span class="icon">🟢</span> Flag: Safe
+            </button>
+            <button class="btn-large btn-hazard" onclick="socket.emit('change_mode', 'Hazard')">
+                <span class="icon">🟡</span> Flag: Hazard
+            </button>
+            <button class="btn-large btn-danger" onclick="socket.emit('change_mode', 'Danger')">
+                <span class="icon">🔴</span> Flag: Danger
+            </button>
+        </div>
+
+        <hr class="divider">
+
+        <div class="control-grid">
+            <button class="btn-large btn-finish" onclick="socket.emit('change_mode', 'Finished')">
+                <span class="icon">🏁</span> Finish Race
+            </button>
+            <button class="btn-large btn-end" onclick="socket.emit('end_session')">
+                <span class="icon">🛑</span> End Session (Cars Returned)
+            </button>
+        </div>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/shared.js"></script>
+    <script>
+        initAuth('safety_official');
+        function updateUI(state) {
+            const statusBadge = document.getElementById('status');
+            statusBadge.innerText = `Current Mode: ${state.currentRace.mode} | Time: ${state.currentRace.timeLeft}s`;
+
+            // Optional: Dynamically change badge color based on mode
+            statusBadge.className = `status-badge badge-${state.currentRace.mode}`;
+        }
+    </script>
+</body>
+
+</html>
