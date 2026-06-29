@@ -18,6 +18,7 @@ export function startRace() {
 
     state.race.running = true;
     state.race.mode = "Safe";
+    state.laps = {};
 
     const isDevelopment =
         process.env.NODE_ENV !== "production";
@@ -123,5 +124,72 @@ export function endSession() {
     });
 
     return true;
+
+}
+
+// Records a lap-line crossing for a driver.
+// First crossing starts their lap count. Each subsequent crossing
+// records the elapsed lap time and increments the lap counter.
+export function recordLap(driverName) {
+
+    if (!state.race.running) return false;
+    if (!(driverName in state.cars)) return false;
+
+    const now = Date.now();
+
+    if (!state.laps[driverName]) {
+        // First crossing: start the clock, lap 1 begins
+        state.laps[driverName] = {
+            lapTimes: [],
+            lastCrossing: now,
+            lapCount: 1
+        };
+    } else {
+        const lapData = state.laps[driverName];
+        const lapDuration = (now - lapData.lastCrossing) / 1000; // seconds
+
+        lapData.lapTimes.push(lapDuration);
+        lapData.lastCrossing = now;
+        lapData.lapCount++;
+    }
+
+    saveState();
+    emit("leaderboard:updated", getLeaderboard());
+
+    return true;
+
+}
+
+// Builds and returns leaderboard data for the current session,
+// sorted by fastest lap time ascending (no lap time goes to the bottom).
+export function getLeaderboard() {
+
+    const currentSession = state.sessions[state.currentSessionIndex];
+    if (!currentSession) return [];
+
+    const entries = currentSession.drivers.map(driver => {
+        const lapData = state.laps[driver] || { lapTimes: [], lapCount: 0 };
+        const fastestLap = lapData.lapTimes.length > 0
+            ? Math.min(...lapData.lapTimes)
+            : null;
+
+        return {
+            driver,
+            car: state.cars[driver],
+            lapCount: lapData.lapCount,
+            fastestLap
+        };
+    });
+
+    // Drivers with a recorded lap time are sorted fastest first.
+    // Drivers who haven't completed a full lap yet go to the bottom.
+    entries.sort((a, b) => {
+        if (a.fastestLap === null && b.fastestLap === null) return 0;
+        if (a.fastestLap === null) return 1;
+        if (b.fastestLap === null) return -1;
+        return a.fastestLap - b.fastestLap;
+    });
+
+    return entries;
 
 }
