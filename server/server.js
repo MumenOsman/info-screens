@@ -8,6 +8,7 @@ import path from "path";
 
 // 1. Import your session manager
 import * as sessionManager from "./session-manager.js";
+import * as raceEngine from "./race-engine.js";
 
 dotenv.config();
 validateEnv();
@@ -21,6 +22,11 @@ const io = new Server(server, {
 // 2. Initialize the session manager with our Socket.IO emitter
 // This allows session-manager.js to broadcast updates to all screens
 sessionManager.initializeSessionManager((event, data) => {
+    io.emit(event, data);
+});
+
+// 3. Initialize the race engine with the same Socket.IO emitter
+raceEngine.initializeRaceEngine((event, data) => {
     io.emit(event, data);
 });
 
@@ -102,6 +108,28 @@ io.on("connection", (socket) => {
     socket.on("update_driver", (data) => {
         sessionManager.updateDriver(data.sessionId, data.oldName, data.newName);
         io.emit("state_update", state);
+    });
+
+    // --- RACE ENGINE BRIDGE ---
+    // These events handle race lifecycle and lap tracking from the Safety Official
+    // and Lap-Line Observer screens.
+
+    socket.on("race:start", () => {
+        raceEngine.startRace();
+        io.emit("state_update", state);
+    });
+
+    socket.on("race:setMode", (mode) => {
+        raceEngine.setRaceMode(mode);
+    });
+
+    socket.on("race:endSession", () => {
+        raceEngine.endSession();
+        io.emit("state_update", state);
+    });
+
+    socket.on("lap:record", (driverName) => {
+        raceEngine.recordLap(driverName);
     });
 
 });
