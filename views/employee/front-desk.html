@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Front Desk | Beachside Racetrack</title>
+    <link rel="stylesheet" href="/style.css">
+
+</head>
+
+<body>
+    <div id="auth-overlay" class="auth-overlay">
+        <div class="auth-card">
+            <h2>Receptionist Access</h2>
+            <p>Please enter your credentials to manage the race queue.</p>
+            <input type="password" id="auth-key" class="auth-input" placeholder="Enter Access Key">
+            <button id="auth-btn" class="btn-auth"
+                onclick="socket.emit('auth', { role: 'receptionist', key: document.getElementById('auth-key').value })">Unlock</button>
+            <p id="auth-error" class="error-text"></p>
+        </div>
+    </div>
+
+    <main class="dashboard-container">
+        <header class="dashboard-header">
+            <div>
+                <h1>Front Desk</h1>
+                <p class="subtitle">Manage Upcoming Race Sessions</p>
+            </div>
+            <button class="btn-action" onclick="createSession()">
+                <span class="icon">🏁</span> Create New Session
+            </button>
+        </header>
+
+        <hr class="divider">
+
+        <div id="sessions-container" class="queue-section">
+        </div>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/shared.js"></script>
+    <script>
+        initAuth('receptionist');
+
+        let frontDeskState = { sessions: [], cars: {} };
+
+        // --- VALIDATION (FIXED FOR STRINGS) ---
+        function isNameDuplicate(newName) {
+            const lowerName = newName.trim().toLowerCase();
+
+            for (const session of frontDeskState.sessions) {
+                if (!session.drivers) continue;
+                for (const driverName of session.drivers) {
+                    // Since it's just an array of strings, we compare the string directly
+                    if (driverName.toLowerCase() === lowerName) return true;
+                }
+            }
+            return false;
+        }
+
+        // --- SESSION ACTIONS ---
+        function createSession() {
+            // Using frontDeskState.sessions.length here so it doesn't error out
+            const name = prompt("Enter a name for this session (Optional):", `Session ${frontDeskState.sessions.length + 1}`);
+            if (name !== null) {
+                socket.emit('add_session', name);
+            }
+        }
+
+        function deleteSession(sessionId) {
+            if (confirm('Are you sure you want to delete this entire session?')) {
+                socket.emit('delete_session', sessionId);
+            }
+        }
+
+        // --- DRIVER ACTIONS ---
+        function addDriver(sessionId) {
+            const inputEl = document.getElementById(`new-driver-${sessionId}`);
+            const driverName = inputEl.value.trim();
+
+            if (!driverName) return;
+            if (isNameDuplicate(driverName)) {
+                alert(`Driver name "${driverName}" is already in a session! Names must be unique.`);
+                return;
+            }
+
+            socket.emit('add_driver', { sessionId, driverName });
+            inputEl.value = '';
+            inputEl.focus();
+        }
+
+        function editDriver(sessionId, currentName) {
+            const newName = prompt("Edit driver name:", currentName);
+            if (!newName || newName.trim() === currentName) return;
+
+            if (isNameDuplicate(newName)) {
+                alert(`Cannot rename to "${newName}". That name is already taken!`);
+                return;
+            }
+
+            socket.emit('update_driver', { sessionId, oldName: currentName, newName: newName.trim() });
+        }
+
+        function removeDriver(sessionId, driverName) {
+            if (confirm(`Remove ${driverName} from the session?`)) {
+                socket.emit('remove_driver', { sessionId, driverName });
+            }
+        }
+
+        // --- UI UPDATES ---
+        function updateUI(state) {
+            frontDeskState = state;
+            const container = document.getElementById('sessions-container');
+
+            if (!state.sessions || state.sessions.length === 0) {
+                container.innerHTML = `<p class="empty-state">No active sessions. Create a new session to begin adding drivers.</p>`;
+                return;
+            }
+
+            let html = '';
+
+            state.sessions.forEach((session, index) => {
+                html += `
+                <div class="session-card">
+                    <div class="session-header">
+                        <h3>${session.name || 'Session ' + (index + 1)}</h3>
+                        <div class="session-actions">
+                            <button onclick="deleteSession(${session.id})" style="background: #dc3545; color: white;">🗑️ Delete Session</button>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <input type="text" id="new-driver-${session.id}" class="control-input" placeholder="Enter Driver Name...">
+                        <button class="btn-action" onclick="addDriver(${session.id})">➕ Add to Session</button>
+                    </div>
+
+                    <ul class="driver-list">
+                `;
+
+                if (!session.drivers || session.drivers.length === 0) {
+                    html += `<li><em>No drivers added to this session yet.</em></li>`;
+                } else {
+                    session.drivers.forEach(driverName => {
+                        const carNum = state.cars && state.cars[driverName] ? state.cars[driverName] : '?';
+
+                        html += `
+                        <li class="driver-item">
+                            <span><span class="car-badge">Car ${carNum}</span> <strong>${driverName}</strong></span>
+                            <div class="driver-controls">
+                                <button onclick="editDriver(${session.id}, '${driverName}')">✏️ Edit</button>
+                                <button onclick="removeDriver(${session.id}, '${driverName}')">❌</button>
+                            </div>
+                        </li>
+                        `;
+                    });
+                }
+
+                html += `</ul></div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // --- MISSING SOCKET LISTENERS ---
+        // These tell the browser to redraw the screen whenever the server sends new state data
+        socket.on('state_update', updateUI);
+        socket.on('race:updated', updateUI);
+    </script>
+</body>
+
+</html>
