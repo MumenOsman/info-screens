@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Leaderboard | Beachside Racetrack</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <main class="dashboard-container fullscreen-mode">
+        <header class="dashboard-header">
+            <div>
+                <h1>Live Leaderboard</h1>
+                <p class="subtitle">Beachside Racetrack Real-Time Standings</p>
+            </div>
+            <div id="race-info" class="status-badge">Waiting for race data...</div>
+        </header>
+
+        <div class="table-wrapper">
+            <table class="modern-table">
+                <thead>
+                    <tr>
+                        <th>Pos</th>
+                        <th>Car</th>
+                        <th>Driver</th>
+                        <th class="text-center">Laps</th>
+                        <th class="text-right">Fastest Lap</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboard-body">
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/shared.js"></script>
+    <script>
+        // Injects the manual "Full Screen" button required by the MVP
+        setupFullscreen();
+
+        function updateUI(state) {
+            const infoBadge = document.getElementById('race-info');
+
+            // Format the timer into MM:SS for a more professional look
+            const mins = Math.floor(state.currentRace.timeLeft / 60).toString().padStart(2, '0');
+            const secs = (state.currentRace.timeLeft % 60).toString().padStart(2, '0');
+
+            infoBadge.innerHTML = `Track: <strong>${state.currentRace.mode}</strong> &nbsp;|&nbsp; ⏱ ${mins}:${secs}`;
+            infoBadge.className = `status-badge bg-${state.currentRace.mode}`;
+
+            // SMART TEXT CONTRAST LOGIC
+            if (state.currentRace.mode === 'Hazard') {
+                infoBadge.style.color = '#000'; // Black text on yellow background
+                infoBadge.style.textShadow = 'none';
+            } else if (state.currentRace.mode === 'Finished') {
+                infoBadge.style.color = '#fff'; // White text on checkerboard
+                infoBadge.style.textShadow = '2px 2px 5px rgba(0,0,0,0.9)'; // Heavy drop-shadow so it's readable!
+            } else {
+                infoBadge.style.color = '#fff'; // White text on green/red backgrounds
+                infoBadge.style.textShadow = 'none';
+            }
+
+            // Sort drivers: Fastest lap first. If no lap logged yet, sort by car number.
+            const sortedDrivers = [...state.currentRace.drivers].sort((a, b) => {
+                if (a.fastestLap && b.fastestLap) return a.fastestLap - b.fastestLap;
+                if (a.fastestLap) return -1;
+                if (b.fastestLap) return 1;
+                return a.carNumber - b.carNumber;
+            });
+
+            // Handle Empty State (No race active)
+            const tbody = document.getElementById('leaderboard-body');
+            if (sortedDrivers.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center empty-state" style="padding: 40px;">No active race session. Waiting for drivers to queue.</td></tr>`;
+                return;
+            }
+
+            // Build rows
+            tbody.innerHTML = sortedDrivers.map((d, index) => {
+                // Add a gold medal icon to the 1st place driver if they have logged a lap
+                const isFirst = index === 0 && d.fastestLap;
+                const positionDisplay = isFirst ? '🥇 1' : index + 1;
+                const fastestDisplay = d.fastestLap ? `<span class="time-highlight">${d.fastestLap.toFixed(3)}s</span>` : '<span class="time-muted">No Time</span>';
+
+                return `
+                <tr class="${isFirst ? 'row-first-place' : ''}">
+                    <td class="pos-column">${positionDisplay}</td>
+                    <td><span class="car-badge">${d.carNumber}</span></td>
+                    <td class="driver-column">${d.name}</td>
+                    <td class="text-center lap-column">${d.lapCount}</td>
+                    <td class="text-right">${fastestDisplay}</td>
+                </tr>`;
+            }).join('');
+        }
+    </script>
+</body>
+
+</html>
