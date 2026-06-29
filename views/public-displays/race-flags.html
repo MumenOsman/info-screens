@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <div id="flag-display" class="flag-screen bg-Danger"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/shared.js"></script>
+    <script>
+        setupFullscreen();
+        function updateUI(state) {
+            const flag = document.getElementById('flag-display');
+            // Dynamically changes the CSS class based on the mode (Safe, Hazard, Danger, Finished)
+            flag.className = `flag-screen bg-${state.currentRace.mode}`;
+        }
+    </script>
+</body>
+
+</html>
