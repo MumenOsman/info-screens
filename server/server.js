@@ -66,8 +66,6 @@ app.get("/race-flags", (req, res) => {
 io.on("connection", (socket) => {
     console.log("Client connected");
 
-    // Send the full current state to the newly connected client
-    socket.emit("race:updated", state);
     // Emit state_update so the Front Desk UI populates immediately
     socket.emit("state_update", state);
 
@@ -85,8 +83,14 @@ io.on("connection", (socket) => {
     // These events catch requests from the Front Desk and route them to your session manager logic
 
     socket.on("add_session", (name) => {
-        sessionManager.addSession(name);
-        io.emit("state_update", state); // Push updated state back to UI
+        const result = sessionManager.addSession(name);
+
+        if (!result) {
+            socket.emit("session:error", "Session name already exists");
+            return;
+        }
+
+        io.emit("state_update", state);
     });
 
     socket.on("delete_session", (sessionId) => {
