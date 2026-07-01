@@ -165,7 +165,10 @@
         // --- MISSING SOCKET LISTENERS ---
         // These tell the browser to redraw the screen whenever the server sends new state data
         socket.on('state_update', updateUI);
-        socket.on('race:updated', updateUI);
+
+        socket.on("session:error", (msg) => {
+            alert(msg);
+        });
     </script>
 </body>
 
