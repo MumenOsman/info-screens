@@ -38,63 +38,102 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/shared.js"></script>
     <script>
-        // Injects the manual "Full Screen" button required by the MVP
         setupFullscreen();
 
-        function updateUI(state) {
+        // --- RENDER HELPERS ---
+
+        function formatTime(secs) {
+            const m = Math.floor(secs / 60).toString().padStart(2, '0');
+            const s = (secs % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function updateMode(mode, remainingTime) {
             const infoBadge = document.getElementById('race-info');
+            infoBadge.innerHTML =
+                `Track: <strong>${mode}</strong> &nbsp;|&nbsp; ⏱ ${formatTime(remainingTime)}`;
+            infoBadge.className = `status-badge bg-${mode}`;
+            infoBadge.style.color = mode === 'Hazard' ? '#000' : '#fff';
+            infoBadge.style.textShadow =
+                mode === 'Finish' ? '2px 2px 5px rgba(0,0,0,0.9)' : 'none';
+        }
 
-            // Format the timer into MM:SS for a more professional look
-            const mins = Math.floor(state.currentRace.timeLeft / 60).toString().padStart(2, '0');
-            const secs = (state.currentRace.timeLeft % 60).toString().padStart(2, '0');
-
-            infoBadge.innerHTML = `Track: <strong>${state.currentRace.mode}</strong> &nbsp;|&nbsp; ⏱ ${mins}:${secs}`;
-            infoBadge.className = `status-badge bg-${state.currentRace.mode}`;
-
-            // SMART TEXT CONTRAST LOGIC
-            if (state.currentRace.mode === 'Hazard') {
-                infoBadge.style.color = '#000'; // Black text on yellow background
-                infoBadge.style.textShadow = 'none';
-            } else if (state.currentRace.mode === 'Finished') {
-                infoBadge.style.color = '#fff'; // White text on checkerboard
-                infoBadge.style.textShadow = '2px 2px 5px rgba(0,0,0,0.9)'; // Heavy drop-shadow so it's readable!
-            } else {
-                infoBadge.style.color = '#fff'; // White text on green/red backgrounds
-                infoBadge.style.textShadow = 'none';
-            }
-
-            // Sort drivers: Fastest lap first. If no lap logged yet, sort by car number.
-            const sortedDrivers = [...state.currentRace.drivers].sort((a, b) => {
-                if (a.fastestLap && b.fastestLap) return a.fastestLap - b.fastestLap;
-                if (a.fastestLap) return -1;
-                if (b.fastestLap) return 1;
-                return a.carNumber - b.carNumber;
-            });
-
-            // Handle Empty State (No race active)
+        function renderLeaderboard(entries) {
             const tbody = document.getElementById('leaderboard-body');
-            if (sortedDrivers.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center empty-state" style="padding: 40px;">No active race session. Waiting for drivers to queue.</td></tr>`;
+            if (!entries || entries.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center empty-state"
+                    style="padding:40px;">No active race session. Waiting for drivers to queue.</td></tr>`;
                 return;
             }
-
-            // Build rows
-            tbody.innerHTML = sortedDrivers.map((d, index) => {
-                // Add a gold medal icon to the 1st place driver if they have logged a lap
-                const isFirst = index === 0 && d.fastestLap;
-                const positionDisplay = isFirst ? '🥇 1' : index + 1;
-                const fastestDisplay = d.fastestLap ? `<span class="time-highlight">${d.fastestLap.toFixed(3)}s</span>` : '<span class="time-muted">No Time</span>';
-
+            tbody.innerHTML = entries.map((d, index) => {
+                const isFirst = index === 0 && d.fastestLap !== null;
+                const posDisplay  = isFirst ? '🥇 1' : index + 1;
+                const fastDisplay = d.fastestLap !== null
+                    ? `<span class="time-highlight">${d.fastestLap.toFixed(3)}s</span>`
+                    : '<span class="time-muted">No Time</span>';
                 return `
                 <tr class="${isFirst ? 'row-first-place' : ''}">
-                    <td class="pos-column">${positionDisplay}</td>
-                    <td><span class="car-badge">${d.carNumber}</span></td>
-                    <td class="driver-column">${d.name}</td>
+                    <td class="pos-column">${posDisplay}</td>
+                    <td><span class="car-badge">${d.car}</span></td>
+                    <td class="driver-column">${d.driver}</td>
                     <td class="text-center lap-column">${d.lapCount}</td>
-                    <td class="text-right">${fastestDisplay}</td>
+                    <td class="text-right">${fastDisplay}</td>
                 </tr>`;
             }).join('');
         }
+
+        // Build leaderboard entries from the full state object
+        function buildLeaderboardFromState(state) {
+            const session = state.sessions && state.sessions[state.currentSessionIndex];
+            if (!session || !session.drivers || session.drivers.length === 0) return [];
+
+            const entries = session.drivers.map(driverName => {
+                const lapData    = state.laps && state.laps[driverName];
+                const lapTimes   = lapData ? lapData.lapTimes : [];
+                const fastestLap = lapTimes.length > 0 ? Math.min(...lapTimes) : null;
+                return {
+                    driver: driverName,
+                    car: state.cars && state.cars[driverName],
+                    lapCount: lapData ? lapData.lapCount : 0,
+                    fastestLap
+                };
+            });
+
+            return entries.sort((a, b) => {
+                if (a.fastestLap === null && b.fastestLap === null) return 0;
+                if (a.fastestLap === null) return 1;
+                if (b.fastestLap === null) return -1;
+                return a.fastestLap - b.fastestLap;
+            });
+        }
+
+        // --- MAIN UPDATE ---
+
+        function updateUI(state) {
+            updateMode(state.race.mode, state.race.remainingTime);
+            renderLeaderboard(buildLeaderboardFromState(state));
+        }
+
+        // --- LIVE PARTIAL EVENTS ---
+
+        // Lap recorded: server sends pre-sorted leaderboard data directly
+        socket.on('leaderboard:updated', (entries) => {
+            renderLeaderboard(entries);
+        });
+
+        // Timer tick: only update the badge, no full re-render
+        socket.on('timer:update', (data) => {
+            if (!currentState) return;
+            currentState.race.remainingTime = data.remainingTime;
+            updateMode(currentState.race.mode, data.remainingTime);
+        });
+
+        // Mode changed: update badge color and text
+        socket.on('race:modeChanged', (data) => {
+            if (!currentState) return;
+            currentState.race.mode = data.mode;
+            updateMode(data.mode, currentState.race.remainingTime);
+        });
     </script>
 </body>
 
