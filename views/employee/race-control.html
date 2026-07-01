@@ -25,33 +25,52 @@
                 <h1>Race Control</h1>
                 <p class="subtitle">Beachside Racetrack Operations</p>
             </div>
-            <h2 id="status" class="status-badge">Mode: Danger</h2>
+            <h2 id="status" class="status-badge">Mode: Safe</h2>
         </header>
 
-        <div class="control-grid">
-            <button class="btn-large btn-start" onclick="socket.emit('start_race')">
-                <span class="icon">🚀</span> Start Race
-            </button>
-            <button class="btn-large btn-safe" onclick="socket.emit('change_mode', 'Safe')">
-                <span class="icon">🟢</span> Flag: Safe
-            </button>
-            <button class="btn-large btn-hazard" onclick="socket.emit('change_mode', 'Hazard')">
-                <span class="icon">🟡</span> Flag: Hazard
-            </button>
-            <button class="btn-large btn-danger" onclick="socket.emit('change_mode', 'Danger')">
-                <span class="icon">🔴</span> Flag: Danger
-            </button>
+        <!-- No sessions queued -->
+        <div id="section-no-race" style="display:none; text-align:center; padding:60px;">
+            <h2>No Upcoming Races</h2>
+            <p>Waiting for the receptionist to add a race session.</p>
         </div>
 
-        <hr class="divider">
+        <!-- Pre-race: one Start button -->
+        <div id="section-pre-race" style="display:none;">
+            <p id="session-info" class="subtitle" style="text-align:center; margin-bottom:24px;"></p>
+            <div class="control-grid">
+                <button class="btn-large btn-start" onclick="socket.emit('race:start')">
+                    <span class="icon">🚀</span> Start Race
+                </button>
+            </div>
+        </div>
 
-        <div class="control-grid">
-            <button class="btn-large btn-finish" onclick="socket.emit('change_mode', 'Finished')">
-                <span class="icon">🏁</span> Finish Race
-            </button>
-            <button class="btn-large btn-end" onclick="socket.emit('end_session')">
-                <span class="icon">🛑</span> End Session (Cars Returned)
-            </button>
+        <!-- Race in progress: four mode buttons -->
+        <div id="section-race-controls" style="display:none;">
+            <div class="control-grid">
+                <button class="btn-large btn-safe"   onclick="socket.emit('race:setMode', 'Safe')">
+                    <span class="icon">🟢</span> Flag: Safe
+                </button>
+                <button class="btn-large btn-hazard" onclick="socket.emit('race:setMode', 'Hazard')">
+                    <span class="icon">🟡</span> Flag: Hazard
+                </button>
+                <button class="btn-large btn-danger" onclick="socket.emit('race:setMode', 'Danger')">
+                    <span class="icon">🔴</span> Flag: Danger
+                </button>
+                <button class="btn-large btn-finish" onclick="socket.emit('race:setMode', 'Finish')">
+                    <span class="icon">🏁</span> Finish Race
+                </button>
+            </div>
+        </div>
+
+        <!-- Mode = Finish: end session button -->
+        <div id="section-finish" style="display:none; text-align:center; padding:40px;">
+            <h2>🏁 Race Finished</h2>
+            <p style="margin-bottom:30px;">Confirm all cars have returned to the pit lane.</p>
+            <div class="control-grid">
+                <button class="btn-large btn-end" onclick="socket.emit('race:endSession')">
+                    <span class="icon">🛑</span> End Session (Cars Returned)
+                </button>
+            </div>
         </div>
     </main>
 
@@ -59,13 +78,60 @@
     <script src="/shared.js"></script>
     <script>
         initAuth('safety_official');
+
+        function showOnly(id) {
+            ['section-no-race', 'section-pre-race', 'section-race-controls', 'section-finish']
+                .forEach(s => document.getElementById(s).style.display = s === id ? '' : 'none');
+        }
+
         function updateUI(state) {
             const statusBadge = document.getElementById('status');
-            statusBadge.innerText = `Current Mode: ${state.currentRace.mode} | Time: ${state.currentRace.timeLeft}s`;
 
-            // Optional: Dynamically change badge color based on mode
-            statusBadge.className = `status-badge badge-${state.currentRace.mode}`;
+            // Update the status badge with mode and remaining time
+            const mins = Math.floor(state.race.remainingTime / 60).toString().padStart(2, '0');
+            const secs = (state.race.remainingTime % 60).toString().padStart(2, '0');
+            statusBadge.innerText = `Mode: ${state.race.mode} | ${mins}:${secs}`;
+            statusBadge.className = `status-badge badge-${state.race.mode}`;
+
+            if (state.race.mode === 'Finish') {
+                // Race has finished — wait for Safety Official to confirm cars returned
+                showOnly('section-finish');
+            } else if (state.race.running) {
+                // Race in progress — show the four mode buttons
+                showOnly('section-race-controls');
+            } else {
+                // Pre-race — show Start button, or no-sessions message
+                const session = state.sessions && state.sessions[state.currentSessionIndex];
+                if (!session) {
+                    showOnly('section-no-race');
+                } else {
+                    showOnly('section-pre-race');
+                    const driverList = session.drivers && session.drivers.length > 0
+                        ? session.drivers.map(d => `${d} (Car ${state.cars[d] || '?'})`).join(', ')
+                        : 'No drivers assigned yet';
+                    document.getElementById('session-info').innerText =
+                        `${session.name} — ${driverList}`;
+                }
+            }
         }
+
+        // race:modeChanged fires without a state_update, so patch currentState manually
+        socket.on('race:modeChanged', (data) => {
+            if (!currentState) return;
+            currentState.race.mode = data.mode;
+            if (data.mode === 'Finish') currentState.race.running = false;
+            updateUI(currentState);
+        });
+
+        // timer:update fires every second — just refresh the badge text cheaply
+        socket.on('timer:update', (data) => {
+            if (!currentState) return;
+            currentState.race.remainingTime = data.remainingTime;
+            const mins = Math.floor(data.remainingTime / 60).toString().padStart(2, '0');
+            const secs = (data.remainingTime % 60).toString().padStart(2, '0');
+            document.getElementById('status').innerText =
+                `Mode: ${currentState.race.mode} | ${mins}:${secs}`;
+        });
     </script>
 </body>
 
