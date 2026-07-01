@@ -8,10 +8,16 @@
     <script>
         setupFullscreen();
         function updateUI(state) {
-            const mins = Math.floor(state.currentRace.timeLeft / 60).toString().padStart(2, '0');
-            const secs = (state.currentRace.timeLeft % 60).toString().padStart(2, '0');
+            const mins = Math.floor(state.race.remainingTime / 60).toString().padStart(2, '0');
+            const secs = (state.race.remainingTime % 60).toString().padStart(2, '0');
             document.getElementById('timer').innerText = `${mins}:${secs}`;
         }
+        // timer:update fires every second without a full state_update
+        socket.on('timer:update', (data) => {
+            const mins = Math.floor(data.remainingTime / 60).toString().padStart(2, '0');
+            const secs = (data.remainingTime % 60).toString().padStart(2, '0');
+            document.getElementById('timer').innerText = `${mins}:${secs}`;
+        });
     </script>
 </body>
 </html>
