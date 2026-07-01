@@ -13,10 +13,14 @@
     <script>
         setupFullscreen();
         function updateUI(state) {
-            const flag = document.getElementById('flag-display');
-            // Dynamically changes the CSS class based on the mode (Safe, Hazard, Danger, Finished)
-            flag.className = `flag-screen bg-${state.currentRace.mode}`;
+            document.getElementById('flag-display').className =
+                `flag-screen bg-${state.race.mode}`;
         }
+        // race:modeChanged fires without a full state_update — update the flag immediately
+        socket.on('race:modeChanged', (data) => {
+            document.getElementById('flag-display').className =
+                `flag-screen bg-${data.mode}`;
+        });
     </script>
 </body>
 
