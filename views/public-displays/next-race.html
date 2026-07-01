@@ -27,51 +27,57 @@
         setupFullscreen();
 
         function updateUI(state) {
-            const grid = document.getElementById('driver-grid');
-            const title = document.getElementById('title');
+            const grid            = document.getElementById('driver-grid');
+            const title           = document.getElementById('title');
             const sessionNameText = document.getElementById('session-name');
 
-            // 1. Determine which session is "Up Next"
+            // Post-session state: race ended, waiting for next race to be started
+            // mode is set to "Danger" by endSession(), distinct from the initial "Safe" state
+            const isPaddock = state.race && state.race.mode === 'Danger' && !state.race.running;
+
+            // 1. Determine which session to display
             let upcomingSession = null;
-            let sessionNumber = 1;
+            let sessionNumber   = 1;
 
             if (state.sessions && state.sessions.length > 0) {
-                // If a race is currently running, the "Next" race is the one after it
                 if (state.race && state.race.running) {
+                    // Race running — show the NEXT session
                     const nextIndex = state.currentSessionIndex + 1;
                     if (nextIndex < state.sessions.length) {
                         upcomingSession = state.sessions[nextIndex];
-                        sessionNumber = nextIndex + 1;
+                        sessionNumber   = nextIndex + 1;
                     }
                 } else {
-                    // If no race is running, the "Next" race is the current queued one
+                    // Not running — show the CURRENT queued session
                     upcomingSession = state.sessions[state.currentSessionIndex];
-                    sessionNumber = state.currentSessionIndex + 1;
+                    sessionNumber   = state.currentSessionIndex + 1;
                 }
             }
 
-            // 2. Handle Empty State (No sessions or empty session)
+            // 2. Title / status banner
+            if (state.race && state.race.running) {
+                title.innerHTML   = `⏳ UP NEXT <br><span style="font-size:1.5rem; color:var(--color-hazard);">Track is currently busy. Please wait.</span>`;
+                title.className   = 'paddock-title';
+            } else if (isPaddock) {
+                // Session just ended — tell drivers to return to the paddock
+                title.innerHTML   = `🏁 PROCEED TO PADDOCK <br><span style="font-size:1.5rem; color:#e74c3c;">Race has ended. Return your car to the paddock.</span>`;
+                title.className   = 'paddock-title';
+            } else {
+                title.innerHTML   = `🟢 PROCEED TO CARS <br><span style="font-size:1.5rem; color:var(--text-muted);">Your race is ready to begin!</span>`;
+                title.className   = 'paddock-title pulse-text';
+            }
+
+            // 3. Driver grid
             if (!upcomingSession || !upcomingSession.drivers || upcomingSession.drivers.length === 0) {
-                title.innerText = "NO DRIVERS QUEUED";
-                title.className = "paddock-title text-muted";
-                sessionNameText.innerText = "Awaiting Session";
-                grid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1; font-size: 2rem; padding: 100px; text-align: center;">Waiting for Receptionist to assign drivers...</div>`;
+                sessionNameText.innerText = isPaddock ? 'Race Session Complete' : 'Awaiting Session';
+                grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1; font-size:2rem; padding:100px; text-align:center;">
+                    ${isPaddock ? 'No further sessions queued.' : 'Waiting for Receptionist to assign drivers...'}
+                </div>`;
                 return;
             }
 
-            // 3. Display the Session Name (e.g., "Corporate Event" or "Session 2")
             sessionNameText.innerText = upcomingSession.name || `Race Session ${sessionNumber}`;
 
-            // 4. Handle the Title and Status Banner
-            if (state.race && state.race.running) {
-                title.innerHTML = `⏳ UP NEXT <br><span style="font-size: 1.5rem; color: var(--color-hazard);">Track is currently busy. Please wait.</span>`;
-                title.className = "paddock-title";
-            } else {
-                title.innerHTML = `🟢 PROCEED TO CARS <br><span style="font-size: 1.5rem; color: var(--text-muted);">Your race is ready to begin!</span>`;
-                title.className = "paddock-title pulse-text"; // Adds an attention-grabbing pulse
-            }
-
-            // 5. Generate the massive Driver Cards by matching drivers to their car numbers in state.cars
             grid.innerHTML = upcomingSession.drivers.map(driverName => {
                 const carNum = (state.cars && state.cars[driverName]) ? state.cars[driverName] : '?';
                 return `
@@ -83,14 +89,15 @@
                     <div class="driver-name-block">
                         <span class="driver-name-large">${driverName}</span>
                     </div>
-                </div>
-                `;
+                </div>`;
             }).join('');
         }
 
-        // 6. MISSING LISTENERS: Bind the updateUI function to our server's socket events
-        socket.on('state_update', updateUI);
-        socket.on('race:updated', updateUI);
+        // race:modeChanged and session:updated both trigger with state_update from server,
+        // but add them here too for any edge cases where only partial events fire
+        socket.on('race:modeChanged', () => { if (currentState) updateUI(currentState); });
+        socket.on('session:updated',  () => { if (currentState) updateUI(currentState); });
+
     </script>
 </body>
 
