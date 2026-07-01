@@ -9,9 +9,18 @@ export function initializeSessionManager(emitter) {
 export function addSession(name) {
     if (state.race.running) return false;
 
+    const trimmedName = name?.trim();
+    if (!trimmedName) return false;
+
+    const exists = state.sessions.some(
+        s => s.name?.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (exists) return false;
+
     const session = {
         id: Date.now(),
-        name,
+        name: trimmedName,
         drivers: []
     };
 
@@ -51,7 +60,7 @@ export function addDriver(sessionId, driverName) {
 
     session.drivers.push(driverName);
 
-    assignCar(driverName);
+    assignCar(session, driverName);
 
     saveState();
     emit("session:updated", state.sessions);
@@ -97,8 +106,8 @@ export function updateDriver(sessionId, oldName, newName) {
     return true;
 }
 
-function assignCar(driverName) {
-    const nextCarNumber = Object.keys(state.cars).length + 1;
+function assignCar(session, driverName) {
+    const nextCarNumber = session.drivers.length;
     state.cars[driverName] = nextCarNumber;
 }
 
