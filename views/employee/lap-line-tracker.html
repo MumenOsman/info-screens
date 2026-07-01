@@ -34,22 +34,23 @@
     <script>
         initAuth('observer');
 
-        // Wrapper function to add a visual "flash" when a button is tapped
-        function logLap(btnElement, carNumber) {
-            socket.emit('log_lap', carNumber);
-            
-            // Visual feedback: briefly add an "active" class
+        // Visual "flash" feedback + emit correct event with driver name
+        function logLap(btnElement) {
+            const driverName = btnElement.getAttribute('data-driver');
+            socket.emit('lap:record', driverName);
+
             btnElement.classList.add('tapped');
             setTimeout(() => {
                 btnElement.classList.remove('tapped');
-            }, 150); // Removes the class after 150ms
+            }, 150);
         }
 
         function updateUI(state) {
             const container = document.getElementById('button-container');
-            const status = document.getElementById('tracker-status');
+            const status    = document.getElementById('tracker-status');
 
-            if (state.currentRace.mode === 'Finished') {
+            // Race has finished — disable buttons and show message
+            if (state.race.mode === 'Finish' || (!state.race.running && state.race.mode === 'Danger')) {
                 container.innerHTML = `
                     <div class="empty-state" style="grid-column: 1 / -1; padding: 60px;">
                         <h2>🏁 Race Finished</h2>
@@ -59,7 +60,8 @@
                 return;
             }
 
-            if (!state.currentRace.active) {
+            // No active race
+            if (!state.race.running) {
                 container.innerHTML = `
                     <div class="empty-state" style="grid-column: 1 / -1; padding: 60px;">
                         <h2>No active race.</h2>
@@ -69,19 +71,31 @@
                 return;
             }
 
+            // Race running — build one button per driver, showing their car number
+            const currentSession = state.sessions && state.sessions[state.currentSessionIndex];
+            const drivers = (currentSession && currentSession.drivers) || [];
+
             status.innerText = "Tap car number when it crosses the line!";
-            
-            // Re-render buttons ONLY if the number of drivers changed to prevent disrupting active tapping
-            // (Comparing current HTML button count to state driver count)
+
+            // Only re-render if driver count changed, to avoid interrupting rapid taps
             const currentButtonCount = container.querySelectorAll('.btn-car').length;
-            if (currentButtonCount !== state.currentRace.drivers.length) {
-                container.innerHTML = state.currentRace.drivers.map(d =>
-                    `<button class="btn-large btn-car" onclick="logLap(this, ${d.carNumber})">
-                        ${d.carNumber}
-                    </button>`
-                ).join('');
+            if (currentButtonCount !== drivers.length) {
+                container.innerHTML = drivers.map(driverName => {
+                    const carNum = (state.cars && state.cars[driverName]) || '?';
+                    return `<button class="btn-large btn-car" data-driver="${driverName}" onclick="logLap(this)">
+                        ${carNum}
+                    </button>`;
+                }).join('');
             }
         }
+
+        // React to partial events that don't include a full state_update
+        socket.on('race:modeChanged', (data) => {
+            if (!currentState) return;
+            currentState.race.mode = data.mode;
+            if (data.mode === 'Finish') currentState.race.running = false;
+            updateUI(currentState);
+        });
     </script>
 </body>
 </html>
