@@ -40,7 +40,14 @@
             let sessionNumber   = 1;
 
             if (state.sessions && state.sessions.length > 0) {
-                if (state.race && state.race.running) {
+                if (isPaddock) {
+                    // Session just ended — show the session that just finished
+                    const prevIndex = state.currentSessionIndex - 1;
+                    if (prevIndex >= 0 && prevIndex < state.sessions.length) {
+                        upcomingSession = state.sessions[prevIndex];
+                        sessionNumber   = prevIndex + 1;
+                    }
+                } else if (state.race && state.race.running) {
                     // Race running — show the NEXT session
                     const nextIndex = state.currentSessionIndex + 1;
                     if (nextIndex < state.sessions.length) {
