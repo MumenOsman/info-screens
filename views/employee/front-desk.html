@@ -68,12 +68,6 @@
             }
         }
 
-        function deleteSession(sessionId) {
-            if (confirm('Are you sure you want to delete this entire session?')) {
-                socket.emit('delete_session', sessionId);
-            }
-        }
-
         // --- DRIVER ACTIONS ---
         function addDriver(sessionId) {
             const inputEl = document.getElementById(`new-driver-${sessionId}`);
@@ -88,6 +82,15 @@
             socket.emit('add_driver', { sessionId, driverName });
             inputEl.value = '';
             inputEl.focus();
+        }
+
+        function assignCar(sessionId, driverName) {
+            const current = (frontDeskState.cars && frontDeskState.cars[driverName]) || '?';
+            const input = prompt(`Assign car number for ${driverName} (current: ${current}):`, current);
+            if (input === null || input.trim() === '') return;
+            const num = parseInt(input, 10);
+            if (isNaN(num) || num < 1) { alert('Please enter a valid car number (1 or higher).'); return; }
+            socket.emit('set_car', { driverName, carNumber: num });
         }
 
         function editDriver(sessionId, currentName) {
@@ -108,32 +111,76 @@
             }
         }
 
-        // --- UI UPDATES ---
+        // --- DRIVER ACTION HELPERS USING DATA ATTRIBUTES ---
+        // These are called from buttons generated in innerHTML.
+        // They read the raw driver name from a data attribute instead of
+        // injecting it into the onclick string, which avoids escaping issues.
+        function handleAssignCar(btn) {
+            assignCar(parseInt(btn.dataset.sid), btn.dataset.name);
+        }
+        function handleEditDriver(btn) {
+            editDriver(parseInt(btn.dataset.sid), btn.dataset.name);
+        }
+        function handleRemoveDriver(btn) {
+            removeDriver(parseInt(btn.dataset.sid), btn.dataset.name);
+        }
+        function handleDeleteSession(btn) {
+            if (confirm('Are you sure you want to delete this entire session?')) {
+                socket.emit('delete_session', parseInt(btn.dataset.sid));
+            }
+        }
+        function handleAddDriver(btn) {
+            const sessionId = parseInt(btn.dataset.sid);
+            const inputEl = document.getElementById(`new-driver-${sessionId}`);
+            const driverName = inputEl.value.trim();
+            if (!driverName) return;
+            if (isNameDuplicate(driverName)) {
+                alert(`Driver name "${driverName}" is already in a session! Names must be unique.`);
+                return;
+            }
+            socket.emit('add_driver', { sessionId, driverName });
+            inputEl.value = '';
+            inputEl.focus();
+        }
+
         function updateUI(state) {
             frontDeskState = state;
             const container = document.getElementById('sessions-container');
+            const isRaceRunning = state.race && (state.race.running || state.race.mode === 'Finish');
 
-            if (!state.sessions || state.sessions.length === 0) {
-                container.innerHTML = `<p class="empty-state">No active sessions. Create a new session to begin adding drivers.</p>`;
+            const sessionsToShow = isRaceRunning
+                ? state.sessions.filter((_, i) => i !== state.currentSessionIndex)
+                : state.sessions;
+
+            if (!sessionsToShow || sessionsToShow.length === 0) {
+                container.innerHTML = isRaceRunning
+                    ? `<p class="empty-state">Race in progress. No further sessions queued yet.</p>`
+                    : `<p class="empty-state">No active sessions. Create a new session to begin adding drivers.</p>`;
                 return;
             }
 
             let html = '';
 
-            state.sessions.forEach((session, index) => {
+            sessionsToShow.forEach((session) => {
+                const globalIndex = state.sessions.indexOf(session);
+                const safeName = escapeHtml(session.name || 'Session ' + (globalIndex + 1));
                 html += `
                 <div class="session-card">
                     <div class="session-header">
-                        <h3>${session.name || 'Session ' + (index + 1)}</h3>
+                        <h3>${safeName}</h3>
                         <div class="session-actions">
-                            <button onclick="deleteSession(${session.id})" style="background: #dc3545; color: white;">🗑️ Delete Session</button>
+                            ${!isRaceRunning
+                                ? `<button data-sid="${session.id}" onclick="handleDeleteSession(this)" style="background: #dc3545; color: white;">🗑️ Delete Session</button>`
+                                : '<span style="color: var(--text-muted); font-size: 0.85rem;">🔒 Locked during race</span>'
+                            }
                         </div>
                     </div>
 
+                    ${!isRaceRunning ? `
                     <div class="input-group">
                         <input type="text" id="new-driver-${session.id}" class="control-input" placeholder="Enter Driver Name...">
-                        <button class="btn-action" onclick="addDriver(${session.id})">➕ Add to Session</button>
-                    </div>
+                        <button class="btn-action" data-sid="${session.id}" onclick="handleAddDriver(this)">➕ Add to Session</button>
+                    </div>` : ''}
 
                     <ul class="driver-list">
                 `;
@@ -143,13 +190,17 @@
                 } else {
                     session.drivers.forEach(driverName => {
                         const carNum = state.cars && state.cars[driverName] ? state.cars[driverName] : '?';
+                        const safeDriver = escapeHtml(driverName);
 
                         html += `
                         <li class="driver-item">
-                            <span><span class="car-badge">Car ${carNum}</span> <strong>${driverName}</strong></span>
+                            <span><span class="car-badge">Car ${carNum}</span> <strong>${safeDriver}</strong></span>
                             <div class="driver-controls">
-                                <button onclick="editDriver(${session.id}, '${driverName}')">✏️ Edit</button>
-                                <button onclick="removeDriver(${session.id}, '${driverName}')">❌</button>
+                                ${!isRaceRunning ? `
+                                <button data-sid="${session.id}" data-name="${safeDriver}" onclick="handleAssignCar(this)">🔢 Car</button>
+                                <button data-sid="${session.id}" data-name="${safeDriver}" onclick="handleEditDriver(this)">✏️ Edit</button>
+                                <button data-sid="${session.id}" data-name="${safeDriver}" onclick="handleRemoveDriver(this)">❌</button>
+                                ` : ''}
                             </div>
                         </li>
                         `;
