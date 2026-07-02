@@ -204,7 +204,7 @@ h1 {
     background-color: var(--color-danger) !important;
 }
 
-.bg-Finished {
+.bg-Finish {
     background: repeating-conic-gradient(#000 0% 25%, #fff 0% 50%) 50% / 100px 100px !important;
 }
 
