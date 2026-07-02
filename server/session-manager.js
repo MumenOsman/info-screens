@@ -7,7 +7,7 @@ export function initializeSessionManager(emitter) {
 }
 
 export function addSession(name) {
-    if (state.race.running) return false;
+    if (state.race.running || state.race.mode === 'Finish') return false;
 
     const trimmedName = name?.trim();
     if (!trimmedName) return false;
@@ -33,7 +33,7 @@ export function addSession(name) {
 }
 
 export function deleteSession(sessionId) {
-    if (state.race.running) return false;
+    if (state.race.running || state.race.mode === 'Finish') return false;
 
     state.sessions = state.sessions.filter(
         session => session.id !== sessionId
@@ -49,18 +49,30 @@ export function deleteSession(sessionId) {
     return true;
 }
 
+function isDriverNameDuplicate(newName) {
+    const lowerName = newName.trim().toLowerCase();
+    for (const session of state.sessions) {
+        if (!session.drivers) continue;
+        for (const driverName of session.drivers) {
+            if (driverName.toLowerCase() === lowerName) return true;
+        }
+    }
+    return false;
+}
+
 export function addDriver(sessionId, driverName) {
-    if (state.race.running) return false;
+    if (state.race.running || state.race.mode === 'Finish') return false;
     if (!driverName) return false;
 
     const session = state.sessions.find(s => s.id === sessionId);
     if (!session) return false;
 
-    if (session.drivers.includes(driverName)) return false;
+    const trimmedName = driverName.trim();
+    if (isDriverNameDuplicate(trimmedName)) return false;
 
-    session.drivers.push(driverName);
+    session.drivers.push(trimmedName);
 
-    assignCar(session, driverName);
+    assignCar(session, trimmedName);
 
     saveState();
     emit("session:updated", state.sessions);
@@ -69,7 +81,7 @@ export function addDriver(sessionId, driverName) {
 }
 
 export function removeDriver(sessionId, driverName) {
-    if (state.race.running) return false;
+    if (state.race.running || state.race.mode === 'Finish') return false;
 
     const session = state.sessions.find(s => s.id === sessionId);
     if (!session) return false;
@@ -87,7 +99,7 @@ export function removeDriver(sessionId, driverName) {
 }
 
 export function updateDriver(sessionId, oldName, newName) {
-    if (state.race.running) return false;
+    if (state.race.running || state.race.mode === 'Finish') return false;
 
     const session = state.sessions.find(s => s.id === sessionId);
     if (!session) return false;
@@ -95,9 +107,15 @@ export function updateDriver(sessionId, oldName, newName) {
     const index = session.drivers.indexOf(oldName);
     if (index === -1) return false;
 
-    session.drivers[index] = newName;
+    const trimmedNew = newName.trim();
+    if (!trimmedNew) return false;
+    if (trimmedNew.toLowerCase() !== oldName.toLowerCase() && isDriverNameDuplicate(trimmedNew)) {
+        return false;
+    }
 
-    state.cars[newName] = state.cars[oldName];
+    session.drivers[index] = trimmedNew;
+
+    state.cars[trimmedNew] = state.cars[oldName];
     delete state.cars[oldName];
 
     saveState();
@@ -107,12 +125,32 @@ export function updateDriver(sessionId, oldName, newName) {
 }
 
 function assignCar(session, driverName) {
-    const nextCarNumber = session.drivers.length;
+    const assignedCars = new Set();
+    for (const d of session.drivers) {
+        if (d !== driverName && state.cars[d] !== undefined) {
+            assignedCars.add(state.cars[d]);
+        }
+    }
+    let nextCarNumber = 1;
+    while (assignedCars.has(nextCarNumber)) {
+        nextCarNumber++;
+    }
     state.cars[driverName] = nextCarNumber;
 }
 
 export function getCurrentSession() {
     return state.sessions[state.currentSessionIndex] || null;
+}
+
+// Allows the receptionist to manually assign a specific car number to a driver
+export function setCarNumber(driverName, carNumber) {
+    if (state.race.running || state.race.mode === 'Finish') return false;
+    if (!(driverName in state.cars)) return false;
+    const num = parseInt(carNumber, 10);
+    if (isNaN(num) || num < 1) return false;
+    state.cars[driverName] = num;
+    saveState();
+    return true;
 }
 
 export function getNextSession() {
