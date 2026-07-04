@@ -76,12 +76,15 @@ export function setRaceMode(mode) {
         return false;
     }
 
-    state.race.mode = mode;
-
-    saveState();
-    emit("race:modeChanged", {
-        mode: state.race.mode
-    });
+    if (mode === "Finish") {
+        finishRace();
+    } else {
+        state.race.mode = mode;
+        saveState();
+        emit("race:modeChanged", {
+            mode: state.race.mode
+        });
+    }
 
     return true;
 
