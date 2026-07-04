@@ -35,9 +35,14 @@ export function addSession(name) {
 export function deleteSession(sessionId) {
     if (state.race.running || state.race.mode === 'Finish') return false;
 
-    state.sessions = state.sessions.filter(
-        session => session.id !== sessionId
-    );
+    const indexToDelete = state.sessions.findIndex(s => s.id === sessionId);
+    if (indexToDelete === -1) return false;
+
+    state.sessions.splice(indexToDelete, 1);
+
+    if (indexToDelete < state.currentSessionIndex) {
+        state.currentSessionIndex--;
+    }
 
     if (state.currentSessionIndex >= state.sessions.length) {
         state.currentSessionIndex = Math.max(0, state.sessions.length - 1);

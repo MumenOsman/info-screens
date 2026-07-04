@@ -90,6 +90,11 @@ io.on("connection", (socket) => {
     // These events catch requests from the Front Desk and route them to your session manager logic
 
     socket.on("add_session", (name) => {
+        if (state.race.running || state.race.mode === 'Finish') {
+            socket.emit("session:error", "Cannot add sessions while a race is in progress");
+            return;
+        }
+
         const result = sessionManager.addSession(name);
 
         if (!result) {
