@@ -168,6 +168,12 @@
                 .replace(/'/g, "&#039;");
         }
 
+        function handleEnter(event, inputEl) {
+            if (event.key === 'Enter') {
+                handleAddDriver(inputEl);
+            }
+        }
+
         function updateUI(state) {
             frontDeskState = state;
             const container = document.getElementById('sessions-container');
