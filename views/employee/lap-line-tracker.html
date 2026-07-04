@@ -82,7 +82,9 @@
             if (currentButtonCount !== drivers.length) {
                 container.innerHTML = drivers.map(driverName => {
                     const carNum = (state.cars && state.cars[driverName]) || '?';
-                    return `<button class="btn-large btn-car" data-driver="${driverName}" onclick="logLap(this)">
+                    // escapeHtml on data-driver attribute to prevent attribute injection
+                    const safeDriver = escapeHtml(driverName);
+                    return `<button class="btn-large btn-car" data-driver="${safeDriver}" onclick="logLap(this)">
                         ${carNum}
                     </button>`;
                 }).join('');

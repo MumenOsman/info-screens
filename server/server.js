@@ -30,6 +30,9 @@ raceEngine.initializeRaceEngine((event, data) => {
     io.emit(event, data);
 });
 
+// 4. Resume timer if the server was restarted during a live race
+raceEngine.resumeTimer();
+
 app.use(express.static("public"));
 
 // --- ROUTES ---
@@ -69,6 +72,10 @@ io.on("connection", (socket) => {
     // Emit state_update so the Front Desk UI populates immediately
     socket.emit("state_update", state);
 
+    socket.on("request_state", () => {
+        socket.emit("state_update", state);
+    });
+
     socket.on("auth", (data) => {
         if (checkKey(data.role, data.key)) {
             socket.emit("auth_success");
@@ -93,6 +100,7 @@ io.on("connection", (socket) => {
         io.emit("state_update", state);
     });
 
+
     socket.on("delete_session", (sessionId) => {
         sessionManager.deleteSession(sessionId);
         io.emit("state_update", state);
@@ -111,6 +119,12 @@ io.on("connection", (socket) => {
 
     socket.on("update_driver", (data) => {
         sessionManager.updateDriver(data.sessionId, data.oldName, data.newName);
+        io.emit("state_update", state);
+    });
+
+    // Allow receptionist to reassign a driver to a specific car number
+    socket.on("set_car", (data) => {
+        sessionManager.setCarNumber(data.driverName, data.carNumber);
         io.emit("state_update", state);
     });
 

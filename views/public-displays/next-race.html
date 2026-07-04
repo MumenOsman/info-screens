@@ -24,87 +24,187 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/shared.js"></script>
     <script>
-        setupFullscreen();
-
-        function updateUI(state) {
-            const grid            = document.getElementById('driver-grid');
-            const title           = document.getElementById('title');
-            const sessionNameText = document.getElementById('session-name');
-
-            // Post-session state: race ended, waiting for next race to be started
-            // mode is set to "Danger" by endSession(), distinct from the initial "Safe" state
-            const isPaddock = state.race && state.race.mode === 'Danger' && !state.race.running;
-
-            // 1. Determine which session to display
-            let upcomingSession = null;
-            let sessionNumber   = 1;
-
-            if (state.sessions && state.sessions.length > 0) {
-                if (isPaddock) {
-                    // Session just ended — show the session that just finished
-                    const prevIndex = state.currentSessionIndex - 1;
-                    if (prevIndex >= 0 && prevIndex < state.sessions.length) {
-                        upcomingSession = state.sessions[prevIndex];
-                        sessionNumber   = prevIndex + 1;
-                    }
-                } else if (state.race && state.race.running) {
-                    // Race running — show the NEXT session
-                    const nextIndex = state.currentSessionIndex + 1;
-                    if (nextIndex < state.sessions.length) {
-                        upcomingSession = state.sessions[nextIndex];
-                        sessionNumber   = nextIndex + 1;
-                    }
-                } else {
-                    // Not running — show the CURRENT queued session
-                    upcomingSession = state.sessions[state.currentSessionIndex];
-                    sessionNumber   = state.currentSessionIndex + 1;
-                }
-            }
-
-            // 2. Title / status banner
-            if (state.race && state.race.running) {
-                title.innerHTML   = `⏳ UP NEXT <br><span style="font-size:1.5rem; color:var(--color-hazard);">Track is currently busy. Please wait.</span>`;
-                title.className   = 'paddock-title';
-            } else if (isPaddock) {
-                // Session just ended — tell drivers to return to the paddock
-                title.innerHTML   = `🏁 PROCEED TO PADDOCK <br><span style="font-size:1.5rem; color:#e74c3c;">Race has ended. Return your car to the paddock.</span>`;
-                title.className   = 'paddock-title';
-            } else {
-                title.innerHTML   = `🟢 PROCEED TO CARS <br><span style="font-size:1.5rem; color:var(--text-muted);">Your race is ready to begin!</span>`;
-                title.className   = 'paddock-title pulse-text';
-            }
-
-            // 3. Driver grid
-            if (!upcomingSession || !upcomingSession.drivers || upcomingSession.drivers.length === 0) {
-                sessionNameText.innerText = isPaddock ? 'Race Session Complete' : 'Awaiting Session';
-                grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1; font-size:2rem; padding:100px; text-align:center;">
-                    ${isPaddock ? 'No further sessions queued.' : 'Waiting for Receptionist to assign drivers...'}
-                </div>`;
-                return;
-            }
-
-            sessionNameText.innerText = upcomingSession.name || `Race Session ${sessionNumber}`;
-
-            grid.innerHTML = upcomingSession.drivers.map(driverName => {
-                const carNum = (state.cars && state.cars[driverName]) ? state.cars[driverName] : '?';
-                return `
-                <div class="driver-assignment-card">
-                    <div class="car-number-block">
-                        <span class="car-label">CAR</span>
-                        <span class="car-number">${carNum}</span>
-                    </div>
-                    <div class="driver-name-block">
-                        <span class="driver-name-large">${driverName}</span>
-                    </div>
-                </div>`;
-            }).join('');
+        // ==========================================
+        // 1. SETUP & FALLBACKS
+        // ==========================================
+        
+        // Ensure the WebSocket is connected just in case shared.js didn't load it
+        if (typeof socket === 'undefined') {
+            window.socket = io();
         }
 
-        // race:modeChanged and session:updated both trigger with state_update from server,
-        // but add them here too for any edge cases where only partial events fire
+        // A fallback function to prevent malicious HTML code injection (XSS)
+        // This converts special characters (like < and >) into safe text.
+        if (typeof escapeHtml === 'undefined') {
+            window.escapeHtml = function(unsafe) {
+                if (!unsafe) return '';
+                return unsafe.toString().replace(/[&<>"']/g, m => ({
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+                })[m]);
+            }
+        }
+
+        // ==========================================
+        // 2. STATE VARIABLES
+        // ==========================================
+        
+        currentState = null; // Holds the most recent data from the server (declared in shared.js)
+        let lastAnnouncedState = null; // Tracks the last status to prevent repeating audio chimes
+
+        // ==========================================
+        // 3. MAIN RENDER FUNCTION
+        // ==========================================
+        
+        function updateUI(state) {
+            try {
+                currentState = state; // Save the new state globally
+                
+                // Grab our HTML elements
+                const grid            = document.getElementById('driver-grid');
+                const title           = document.getElementById('title');
+                const sessionNameText = document.getElementById('session-name');
+
+                // --- VISUAL EFFECT: FADE OUT ---
+                // We fade the text and grid out first before changing the data
+                grid.style.opacity = '0';
+                title.style.opacity = '0';
+
+                // Wait 150 milliseconds for the fade-out to finish, THEN update the data
+                setTimeout(() => { 
+                    
+                    // Check if the race just ended (Danger mode + not running)
+                    const isPaddock = state.race && state.race.mode === 'Danger' && !state.race.running;
+                    
+                    let upcomingSession = null;
+                    let sessionNumber   = 1;
+                    
+                    // Safely get the current session index, default to 0 if the server hasn't set one
+                    const currentIndex = state.currentSessionIndex || 0; 
+
+                    // --- LOGIC: WHICH SESSION DO WE SHOW? ---
+                    if (state.sessions && state.sessions.length > 0) {
+                        if (isPaddock) {
+                            // The race just finished. Show the drivers who are currently returning to the paddock.
+                            const prevIndex = currentIndex - 1;
+                            if (prevIndex >= 0 && prevIndex < state.sessions.length) {
+                                upcomingSession = state.sessions[prevIndex];
+                                sessionNumber   = prevIndex + 1;
+                            }
+                        } else if (state.race && state.race.running) {
+                            // A race is currently happening! Show the NEXT session waiting in line.
+                            const nextIndex = currentIndex + 1;
+                            if (nextIndex < state.sessions.length) {
+                                upcomingSession = state.sessions[nextIndex];
+                                sessionNumber   = nextIndex + 1;
+                            }
+                        } else {
+                            // No race is running. Show the current queued session waiting to go.
+                            upcomingSession = state.sessions[currentIndex];
+                            sessionNumber   = currentIndex + 1;
+                        }
+                    }
+
+                    // --- LOGIC: WHAT DOES THE HEADER SAY? ---
+                    if (state.race && state.race.running) {
+                        // Get the name of the session currently on the track so waiting drivers know who is ahead of them
+                        const currentRacingName = state.sessions[currentIndex]?.name || `Session ${currentIndex + 1}`;
+                        title.innerHTML   = `⏳ UP NEXT <br><span style="font-size:1.5rem; color:var(--color-hazard);">Track is busy: <strong>${escapeHtml(currentRacingName)}</strong> is racing.</span>`;
+                        title.className   = 'paddock-title';
+                    } else if (isPaddock) {
+                        title.innerHTML   = `🏁 PROCEED TO PADDOCK <br><span style="font-size:1.5rem; color:#e74c3c;">Race has ended. Return your car to the paddock.</span>`;
+                        title.className   = 'paddock-title';
+                    } else {
+                        title.innerHTML   = `🟢 PROCEED TO CARS <br><span style="font-size:1.5rem; color:var(--text-muted);">Your race is ready to begin!</span>`;
+                        title.className   = 'paddock-title pulse-text';
+                        
+                        // AUDIO TRIGGER: If we just switched to the "GO" state, you can play a chime here!
+                        if (lastAnnouncedState !== 'GO' && upcomingSession?.drivers?.length > 0) {
+                            // Uncomment the line below and add an mp3 file to your public folder to enable the chime
+                            // new Audio('/chime.mp3').play().catch(e => console.log('Audio blocked by browser'));
+                            lastAnnouncedState = 'GO';
+                        }
+                    }
+
+                    // Track the last announced state so we don't spam the audio chime
+                    if (!isPaddock && (!state.race || !state.race.running)) {
+                         lastAnnouncedState = 'GO';
+                    } else {
+                         lastAnnouncedState = 'WAIT';
+                    }
+
+                    // --- LOGIC: BUILD THE DRIVER CARDS ---
+                    if (!upcomingSession || !upcomingSession.drivers || upcomingSession.drivers.length === 0) {
+                        // Empty State: No drivers assigned yet
+                        sessionNameText.innerText = isPaddock ? 'Race Session Complete' : 'Awaiting Session';
+                        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1; font-size:2rem; padding:100px; text-align:center;">
+                            ${isPaddock ? 'No further sessions queued.' : 'Waiting for Receptionist to assign drivers...'}
+                        </div>`;
+                    } else {
+                        // Drivers found! Update the session name banner
+                        sessionNameText.innerText = upcomingSession.name || `Race Session ${sessionNumber}`;
+
+                        // DYNAMIC SIZING: Make cards bigger if there are only a few drivers, smaller if there are many
+                        const driverCount = upcomingSession.drivers.length;
+                        let cardScale = "1"; // Normal size
+                        if (driverCount <= 4) cardScale = "1.2"; // 20% larger for small groups
+                        if (driverCount >= 10) cardScale = "0.85"; // 15% smaller for huge groups
+
+                        // Loop through all drivers and create their HTML cards
+                        grid.innerHTML = upcomingSession.drivers.map(driverName => {
+                            // Find their assigned car number, default to '?' if they don't have one
+                            const carNum = (state.cars && state.cars[driverName]) ? state.cars[driverName] : '?';
+                            
+                            return `
+                            <div class="driver-assignment-card" style="transform: scale(${cardScale}); transition: transform 0.3s ease;">
+                                <div class="car-number-block">
+                                    <span class="car-label">CAR</span>
+                                    <span class="car-number">${carNum}</span>
+                                </div>
+                                <div class="driver-name-block">
+                                    <span class="driver-name-large">${escapeHtml(driverName)}</span>
+                                </div>
+                            </div>`;
+                        }).join(''); // Combine all the cards into one big HTML string
+                    }
+
+                    // --- VISUAL EFFECT: FADE IN ---
+                    // Now that the new data is loaded in the HTML, fade it back into view
+                    grid.style.transition = 'opacity 0.4s ease-in-out';
+                    title.style.transition = 'opacity 0.4s ease-in-out';
+                    grid.style.opacity = '1';
+                    title.style.opacity = '1';
+
+                }, 150); // End of the 150ms timeout
+
+            } catch (error) {
+                // If anything crashes, print it to the hidden browser console (F12) instead of freezing the screen
+                console.error("Error updating UI:", error);
+            }
+        }
+
+        // ==========================================
+        // 4. SOCKET LISTENERS & INIT
+        // ==========================================
+        
+        // Listen for data updates from the server and trigger the updateUI function
+        socket.on('state_update', updateUI);
+        
+        // Safety listeners in case the server only fires a specific event instead of a full state update
         socket.on('race:modeChanged', () => { if (currentState) updateUI(currentState); });
         socket.on('session:updated',  () => { if (currentState) updateUI(currentState); });
+        
+        // As soon as this page finishes loading, ask the server for the latest data immediately
+        socket.emit('request_state');
 
+        // Attempt to put the browser in fullscreen mode
+        // Note: Wrapped in a try/catch because browsers block automatic fullscreen without a user clicking first
+        if (typeof setupFullscreen === 'function') {
+            try { 
+                setupFullscreen(); 
+            } catch (e) { 
+                console.warn("Fullscreen setup failed. This is normal until the user clicks the screen.", e); 
+            }
+        }
     </script>
 </body>
 

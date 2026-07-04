@@ -107,7 +107,7 @@
                 } else {
                     showOnly('section-pre-race');
                     const driverList = session.drivers && session.drivers.length > 0
-                        ? session.drivers.map(d => `${d} (Car ${state.cars[d] || '?'})`).join(', ')
+                        ? session.drivers.map(d => `${escapeHtml(d)} (Car ${state.cars[d] || '?'})`).join(', ')
                         : 'No drivers assigned yet';
                     document.getElementById('session-info').innerText =
                         `${session.name} — ${driverList}`;

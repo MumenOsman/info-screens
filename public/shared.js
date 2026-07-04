@@ -1,6 +1,18 @@
 window.socket = io();
 const socket = window.socket;
 
+// Sanitize any user-supplied string before inserting it into innerHTML.
+// Prevents XSS via driver names, session names, or any other user-controlled text.
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+window.escapeHtml = escapeHtml;
+
 let currentState = null;
 
 // Handle Auth for Employee screens

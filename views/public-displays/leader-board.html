@@ -71,11 +71,12 @@
                 const fastDisplay = d.fastestLap !== null
                     ? `<span class="time-highlight">${d.fastestLap.toFixed(3)}s</span>`
                     : '<span class="time-muted">No Time</span>';
+                const safeDriver = escapeHtml(d.driver);
                 return `
                 <tr class="${isFirst ? 'row-first-place' : ''}">
                     <td class="pos-column">${posDisplay}</td>
                     <td><span class="car-badge">${d.car}</span></td>
-                    <td class="driver-column">${d.driver}</td>
+                    <td class="driver-column">${safeDriver}</td>
                     <td class="text-center lap-column">${d.lapCount}</td>
                     <td class="text-right">${fastDisplay}</td>
                 </tr>`;

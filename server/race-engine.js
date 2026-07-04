@@ -127,6 +127,36 @@ export function endSession() {
 
 }
 
+// Resumes the countdown timer after a server restart.
+// Called on startup when state.race.running is true and remainingTime > 0.
+export function resumeTimer() {
+
+    if (!state.race.running || state.race.remainingTime <= 0) return;
+
+    clearInterval(timer);
+
+    timer = setInterval(() => {
+
+        if (!state.race.running) {
+            clearInterval(timer);
+            return;
+        }
+
+        state.race.remainingTime--;
+
+        saveState();
+        emit("timer:update", {
+            remainingTime: state.race.remainingTime
+        });
+
+        if (state.race.remainingTime <= 0) {
+            finishRace();
+        }
+
+    }, 1000);
+
+}
+
 // Records a lap-line crossing for a driver.
 // First crossing starts their lap count. Each subsequent crossing
 // records the elapsed lap time and increments the lap counter.
