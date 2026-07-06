@@ -1,3 +1,4 @@
+// Checks that required env keys exist before running the program
 export function validateEnv() {
   const required = [
     "receptionist_key",
@@ -12,6 +13,7 @@ export function validateEnv() {
   }
 }
 
+// Checks that the key matches the role
 export function checkKey(role, key) {
   const keys = {
     receptionist: process.env.receptionist_key,

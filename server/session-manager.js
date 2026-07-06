@@ -6,6 +6,7 @@ export function initializeSessionManager(emitter) {
     emit = emitter;
 }
 
+// Creates a new race session
 export function addSession(name) {
     if (state.race.running || state.race.mode === 'Finish') return false;
 
@@ -13,7 +14,7 @@ export function addSession(name) {
     if (!trimmedName) return false;
 
     const exists = state.sessions.some(
-        s => s.name?.toLowerCase() === trimmedName.toLowerCase()
+        s => s.name?.toLowerCase() === trimmedName.toLowerCase() // Checks if sessions have duplicate names
     );
 
     if (exists) return false;
@@ -32,6 +33,7 @@ export function addSession(name) {
     return session;
 }
 
+// Deletes race session
 export function deleteSession(sessionId) {
     if (state.race.running || state.race.mode === 'Finish') return false;
 
@@ -54,6 +56,7 @@ export function deleteSession(sessionId) {
     return true;
 }
 
+// Checks if drivers have duplicate names
 function isDriverNameDuplicate(newName) {
     const lowerName = newName.trim().toLowerCase();
     for (const session of state.sessions) {
@@ -65,6 +68,7 @@ function isDriverNameDuplicate(newName) {
     return false;
 }
 
+// Adds driver to session
 export function addDriver(sessionId, driverName) {
     if (state.race.running || state.race.mode === 'Finish') return false;
     if (!driverName) return false;
@@ -85,6 +89,7 @@ export function addDriver(sessionId, driverName) {
     return true;
 }
 
+// Removes driver from session
 export function removeDriver(sessionId, driverName) {
     if (state.race.running || state.race.mode === 'Finish') return false;
 
@@ -103,6 +108,7 @@ export function removeDriver(sessionId, driverName) {
     return true;
 }
 
+// Edits driver name
 export function updateDriver(sessionId, oldName, newName) {
     if (state.race.running || state.race.mode === 'Finish') return false;
 
@@ -129,6 +135,7 @@ export function updateDriver(sessionId, oldName, newName) {
     return true;
 }
 
+// Assings next available car to driver
 function assignCar(session, driverName) {
     const assignedCars = new Set();
     for (const d of session.drivers) {

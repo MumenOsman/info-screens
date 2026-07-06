@@ -1,15 +1,18 @@
 import { state, saveState } from "./state.js";
 
+// Stores the race timer
 let timer = null;
+// This function broadcasts updates to connected pages
 let emit = () => { };
 
-const DEV_DURATION = 60;
-const PROD_DURATION = 600;
+const DEV_DURATION = 60; // Timer is set to 1 minute when when program is run with dev mode
+const PROD_DURATION = 600; // Timer is set to 10 minutes when run with prod mode
 
 export function initializeRaceEngine(emitter) {
     emit = emitter;
 }
 
+// Starts new race, resets race state, clears lap data, sets countdown duration and the starts timer
 export function startRace() {
 
     if (state.race.running) {
@@ -34,6 +37,7 @@ export function startRace() {
     return true;
 }
 
+// Starts timer that goes down by a second until and finishes the race when it goes to zero
 function startTimer() {
 
     clearInterval(timer);
@@ -59,6 +63,8 @@ function startTimer() {
 
 }
 
+// Changes the current race flag/mode.
+// Prevents invalid modes and blocks changes after the race has finished.
 export function setRaceMode(mode) {
 
     const validModes = [
@@ -90,6 +96,7 @@ export function setRaceMode(mode) {
 
 }
 
+// Ends current race, stops timer and changes race mode to finished
 export function finishRace() {
 
     clearInterval(timer);
@@ -107,6 +114,7 @@ export function finishRace() {
 
 }
 
+// Ends current session and then advances to the next one
 export function endSession() {
 
     if (state.race.mode !== "Finish") {
